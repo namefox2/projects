@@ -116,17 +116,12 @@
 })();
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"
-        onload="initHeart()"
-        onerror="document.getElementById('err').style.display='block';
-                 document.getElementById('err').textContent='Three.js 로드 실패 — CDN 차단 여부 확인 필요'">
-</script>
-
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════
-   Three.js Heart — called only after Three.js is loaded
+   Three.js Heart — Three.js is already loaded above
 ═══════════════════════════════════════════════════════════ */
-function initHeart() {
+(function initHeart() {
   try {
     const glCanvas = document.getElementById('gl');
 
@@ -337,7 +332,7 @@ function initHeart() {
     errEl.textContent = 'Heart render error: ' + e.message;
     console.error(e);
   }
-}
+})();
 </script>
 </body>
 </html>
