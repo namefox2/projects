@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Heartbeat</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+
+  let W, H;
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // ── ECG shape (x: 0~1, y: -1~1) ──────────────────────────────
+  const ecgPts = [
+    [0,    0],[0.07,  0],[0.09,  0.08],[0.11, -0.13],[0.13,  0],
+    [0.16,  0.06],[0.19,  1.0],[0.22, -0.6],[0.26,  0],
+    [0.33,  0.25],[0.41,  0],[1.0,   0],
+  ];
+  function ecgY(x) {
+    for (let i = 0; i < ecgPts.length - 1; i++) {
+      const [x0,y0] = ecgPts[i], [x1,y1] = ecgPts[i+1];
+      if (x >= x0 && x <= x1) {
+        const t = (x-x0)/(x1-x0);
+        return y0 + (y1-y0)*t;
+      }
+    }
+    return 0;
+  }
+
+  // ── Heart path ────────────────────────────────────────────────
+  function heartPath(cx, cy, size) {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + size * 0.3);
+    ctx.bezierCurveTo(cx - size*1.05, cy - size*0.25,
+                      cx - size*1.05, cy - size*0.95,
+                      cx,             cy - size*0.4);
+    ctx.bezierCurveTo(cx + size*1.05, cy - size*0.95,
+                      cx + size*1.05, cy - size*0.25,
+                      cx,             cy + size*0.3);
+    ctx.closePath();
+  }
+
+  // ── Ripple rings ──────────────────────────────────────────────
+  let rings = [];
+  function spawnRing(cx, cy) {
+    rings.push({ cx, cy, born: performance.now() });
+  }
+
+  // ── Beat timing (72 BPM) ─────────────────────────────────────
+  const BPM = 72;
+  const BEAT_MS = 60000 / BPM;
+  let lastTime = null;
+  let phase = 0;      // 0 ~ 1 within one beat
+  let prevPhase = 0;
+
+  // ── ECG trail buffer ─────────────────────────────────────────
+  const TRAIL = 600;   // number of history points
+  const trail = [];    // {x, y (canvas)}
+
+  function draw(ts) {
+    if (!lastTime) lastTime = ts;
+    const dt = ts - lastTime;
+    lastTime = ts;
+
+    prevPhase = phase;
+    phase += dt / BEAT_MS;
+    const beat = Math.floor(phase) > Math.floor(prevPhase); // new beat?
+    if (phase >= 1) phase -= Math.floor(phase);
+
+    const cx = W / 2;
+    const cy = H / 2 - H * 0.05;
+
+    // ── 1. Clear ─────────────────────────────────────────────
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+
+    // ── 2. Ripple rings ──────────────────────────────────────
+    if (beat) spawnRing(cx, cy);
+
+    const maxR = Math.min(W, H) * 0.52;
+    rings = rings.filter(r => {
+      const age = (ts - r.born) / 1400;
+      if (age > 1) return false;
+      const radius = age * maxR;
+      const alpha  = (1 - age) * 0.35;
+      ctx.beginPath();
+      ctx.arc(r.cx, r.cy, radius, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(200,30,30,${alpha})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      return true;
+    });
+
+    // ── 3. Glow behind heart ─────────────────────────────────
+    const glowIntensity = 0.12 + Math.max(0, ecgY(phase)) * 0.35;
+    const heartSize = Math.min(W, H) * 0.18;
+    const glowR = heartSize * 2.2;
+    const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
+    grd.addColorStop(0, `rgba(180,20,20,${glowIntensity})`);
+    grd.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.beginPath();
+    ctx.arc(cx, cy, glowR, 0, Math.PI*2);
+    ctx.fillStyle = grd;
+    ctx.fill();
+
+    // ── 4. Beating heart ─────────────────────────────────────
+    // double-thump feel: main beat + small echo
+    const raw    = ecgY(phase);
+    const pulse  = 1 + Math.max(0, raw) * 0.28;
+    const size   = heartSize * pulse;
+
+    // outer soft heart
+    ctx.save();
+    ctx.globalAlpha = 0.18 + Math.max(0, raw) * 0.15;
+    heartPath(cx, cy, size * 1.18);
+    ctx.fillStyle = '#c81e1e';
+    ctx.fill();
+    ctx.restore();
+
+    // main heart
+    heartPath(cx, cy, size);
+    const hGrd = ctx.createRadialGradient(cx - size*0.2, cy - size*0.1, 0,
+                                           cx,             cy,            size*1.4);
+    hGrd.addColorStop(0, '#ff4444');
+    hGrd.addColorStop(0.5, '#cc1c1c');
+    hGrd.addColorStop(1,   '#6b0000');
+    ctx.fillStyle = hGrd;
+    ctx.fill();
+
+    // highlight
+    ctx.save();
+    heartPath(cx, cy, size);
+    ctx.clip();
+    const hlGrd = ctx.createRadialGradient(cx - size*0.3, cy - size*0.45, 0,
+                                            cx - size*0.3, cy - size*0.45, size*0.7);
+    hlGrd.addColorStop(0, 'rgba(255,255,255,0.18)');
+    hlGrd.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = hlGrd;
+    ctx.fillRect(cx - size*2, cy - size*2, size*4, size*4);
+    ctx.restore();
+
+    // ── 5. ECG line (bottom strip) ───────────────────────────
+    const stripY  = H * 0.82;
+    const stripH  = H * 0.1;
+    const stripX  = W * 0.1;
+    const stripW  = W * 0.8;
+
+    // subtle background strip
+    ctx.fillStyle = 'rgba(255,255,255,0.02)';
+    ctx.fillRect(stripX, stripY - stripH, stripW, stripH * 2);
+
+    // grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let x = stripX; x <= stripX + stripW; x += 40) {
+      ctx.beginPath(); ctx.moveTo(x, stripY - stripH); ctx.lineTo(x, stripY + stripH); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.moveTo(stripX, stripY); ctx.lineTo(stripX + stripW, stripY); ctx.stroke();
+
+    // pen position
+    const penX = stripX + phase * stripW;
+    const penY = stripY - ecgY(phase) * stripH * 0.85;
+
+    // push to trail
+    trail.push({ x: penX, y: penY });
+    if (trail.length > TRAIL) trail.shift();
+
+    // draw trail (fade older)
+    for (let i = 1; i < trail.length; i++) {
+      const age   = 1 - i / trail.length;  // 0=oldest 1=newest
+      const alpha = Math.pow(age, 1.4) * 0.9;
+      ctx.beginPath();
+      ctx.moveTo(trail[i-1].x, trail[i-1].y);
+      ctx.lineTo(trail[i].x,   trail[i].y);
+      ctx.strokeStyle = `rgba(220,50,50,${alpha})`;
+      ctx.lineWidth   = age > 0.85 ? 2.2 : 1.4;
+      ctx.stroke();
+    }
+
+    // glowing tip
+    const tGrd = ctx.createRadialGradient(penX, penY, 0, penX, penY, 10);
+    tGrd.addColorStop(0, 'rgba(255,100,100,0.9)');
+    tGrd.addColorStop(1, 'rgba(220,40,40,0)');
+    ctx.beginPath(); ctx.arc(penX, penY, 10, 0, Math.PI*2);
+    ctx.fillStyle = tGrd; ctx.fill();
+    ctx.beginPath(); ctx.arc(penX, penY, 2, 0, Math.PI*2);
+    ctx.fillStyle = '#fff'; ctx.fill();
+
+    requestAnimationFrame(draw);
+  }
+
+  requestAnimationFrame(draw);
+</script>
+</body>
+</html>
