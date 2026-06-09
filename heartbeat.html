@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Heartbeat</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    .bpm {
+      position: fixed;
+      bottom: 48px;
+      right: 60px;
+      color: rgba(255, 255, 255, 0.15);
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      user-select: none;
+    }
+
+    .bpm span {
+      color: rgba(220, 50, 50, 0.6);
+      font-size: 28px;
+      font-weight: 300;
+      letter-spacing: 2px;
+      display: block;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div class="bpm">
+  heart rate
+  <span id="bpmVal">72</span>
+</div>
+
+<script>
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+
+  let W, H;
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // ECG waveform shape (normalized 0~1 x, -1~1 y)
+  const ecgShape = [
+    [0,      0],
+    [0.08,   0],
+    [0.10,   0.08],
+    [0.12,  -0.12],
+    [0.14,   0],
+    [0.17,   0.05],
+    [0.20,   1.0],   // R peak
+    [0.23,  -0.55],  // S
+    [0.27,   0],
+    [0.34,   0.22],  // T wave
+    [0.42,   0],
+    [1.0,    0],
+  ];
+
+  // interpolate ecg shape at x in [0,1]
+  function ecgY(x) {
+    for (let i = 0; i < ecgShape.length - 1; i++) {
+      const [x0, y0] = ecgShape[i];
+      const [x1, y1] = ecgShape[i + 1];
+      if (x >= x0 && x <= x1) {
+        const t = (x - x0) / (x1 - x0);
+        return y0 + (y1 - y0) * t;
+      }
+    }
+    return 0;
+  }
+
+  const BPM = 72;
+  const BEAT_INTERVAL = 60000 / BPM; // ms per beat
+  const TRAIL_LENGTH = 2.2; // how many beats visible at once
+
+  // Scrolling line state
+  let lastTime = null;
+  let phase = 0; // 0 ~ 1 = position within one beat cycle
+
+  // Pulse rings
+  let rings = [];
+
+  function spawnRing() {
+    rings.push({ r: 0, alpha: 0.8, born: performance.now() });
+  }
+
+  // Color
+  const RED = '#dc3232';
+  const RED_DIM = 'rgba(180,30,30,';
+
+  function draw(ts) {
+    if (!lastTime) lastTime = ts;
+    const dt = ts - lastTime;
+    lastTime = ts;
+
+    phase += dt / BEAT_INTERVAL;
+    if (phase >= 1) {
+      phase -= Math.floor(phase);
+      spawnRing();
+    }
+
+    // Clear
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+
+    // --- ECG LINE ---
+    const lineW = W * 0.72;
+    const lineX = (W - lineW) / 2;
+    const lineY = H / 2;
+    const amp = H * 0.22;
+    const speed = lineW / TRAIL_LENGTH; // px per beat
+
+    // how far the "pen" has moved from left edge
+    const penX = lineX + (phase * speed);
+
+    // draw fading trail
+    const segments = 300;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+
+    for (let i = 0; i < segments; i++) {
+      const t0 = i / segments;
+      const t1 = (i + 1) / segments;
+
+      // map trail position to x on canvas
+      const x0 = penX - t0 * lineW;
+      const x1 = penX - t1 * lineW;
+
+      if (x0 < lineX || x1 > lineX + lineW) continue;
+
+      // phase within beat for this segment
+      const bp0 = ((phase - t0 * TRAIL_LENGTH) % 1 + 1) % 1;
+      const bp1 = ((phase - t1 * TRAIL_LENGTH) % 1 + 1) % 1;
+
+      const y0 = lineY - ecgY(bp0) * amp;
+      const y1 = lineY - ecgY(bp1) * amp;
+
+      // fade: recent = bright, older = dim
+      const age = t0; // 0 = newest, 1 = oldest
+      const alpha = Math.pow(1 - age, 1.6) * 0.95;
+
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1);
+      ctx.strokeStyle = RED_DIM + alpha + ')';
+      ctx.lineWidth = age < 0.05 ? 2.4 : 1.6;
+      ctx.stroke();
+    }
+
+    // glowing dot at pen tip
+    const tipY = lineY - ecgY(phase) * amp;
+    const grd = ctx.createRadialGradient(penX, tipY, 0, penX, tipY, 14);
+    grd.addColorStop(0, 'rgba(255,80,80,0.9)');
+    grd.addColorStop(1, 'rgba(220,50,50,0)');
+    ctx.beginPath();
+    ctx.arc(penX, tipY, 14, 0, Math.PI * 2);
+    ctx.fillStyle = grd;
+    ctx.fill();
+
+    // dot center
+    ctx.beginPath();
+    ctx.arc(penX, tipY, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+
+    // --- PULSE RINGS (center) ---
+    const cx = W / 2, cy = H / 2;
+    rings = rings.filter(r => {
+      const age = (ts - r.born) / 1200;
+      if (age > 1) return false;
+      const radius = age * Math.min(W, H) * 0.28;
+      const alpha = r.alpha * (1 - age) * 0.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(200,40,40,${alpha})`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      return true;
+    });
+
+    // --- HEART ICON (center, beating) ---
+    const beatScale = 1 + ecgY(phase) * 0.12;
+    drawHeart(cx, cy - H * 0.06, 38 * beatScale, `rgba(220,50,50,${0.15 + ecgY(phase) * 0.2})`);
+
+    // --- GRID (subtle) ---
+    ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+    ctx.lineWidth = 1;
+    const gridSize = 32;
+    for (let x = lineX; x <= lineX + lineW; x += gridSize) {
+      ctx.beginPath(); ctx.moveTo(x, lineY - amp * 1.4); ctx.lineTo(x, lineY + amp * 1.4); ctx.stroke();
+    }
+    for (let y = lineY - amp * 1.4; y <= lineY + amp * 1.4; y += gridSize) {
+      ctx.beginPath(); ctx.moveTo(lineX, y); ctx.lineTo(lineX + lineW, y); ctx.stroke();
+    }
+
+    requestAnimationFrame(draw);
+  }
+
+  function drawHeart(x, y, size, color) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.beginPath();
+    ctx.moveTo(0, size * 0.3);
+    ctx.bezierCurveTo(-size * 1.0, -size * 0.3, -size * 1.0, -size * 0.9, 0, -size * 0.4);
+    ctx.bezierCurveTo(size * 1.0, -size * 0.9, size * 1.0, -size * 0.3, 0, size * 0.3);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  requestAnimationFrame(draw);
+</script>
+
+</body>
+</html>
