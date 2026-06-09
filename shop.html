@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NOIR — 패션 스토어</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Georgia', serif;
+      background: #fafaf8;
+      color: #1a1a1a;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 60px;
+      background: rgba(250, 250, 248, 0.92);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      border-bottom: 1px solid #e8e8e4;
+    }
+
+    .logo {
+      font-size: 22px;
+      letter-spacing: 8px;
+      font-weight: 400;
+      text-transform: uppercase;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 40px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      color: #1a1a1a;
+      font-size: 13px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      transition: opacity 0.2s;
+    }
+
+    .nav-links a:hover { opacity: 0.5; }
+
+    .nav-icons {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .nav-icons span {
+      font-size: 13px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .nav-icons span:hover { opacity: 0.5; }
+
+    /* HERO */
+    .hero {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .hero-left {
+      background: #1a1a1a;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 80px 60px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-left::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(160deg, #2a2a2a 0%, #0d0d0d 100%);
+    }
+
+    .hero-bg-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 180px;
+      color: rgba(255,255,255,0.04);
+      letter-spacing: -10px;
+      font-weight: 700;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .hero-content { position: relative; z-index: 1; }
+
+    .hero-season {
+      font-size: 11px;
+      letter-spacing: 4px;
+      color: #888;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    .hero-title {
+      font-size: 64px;
+      color: #fff;
+      line-height: 1.1;
+      font-weight: 300;
+      margin-bottom: 32px;
+    }
+
+    .hero-title em {
+      font-style: italic;
+      color: #c8b89a;
+    }
+
+    .btn-primary {
+      display: inline-block;
+      padding: 16px 40px;
+      background: #c8b89a;
+      color: #1a1a1a;
+      text-decoration: none;
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      transition: background 0.2s;
+    }
+
+    .btn-primary:hover { background: #b8a88a; }
+
+    .hero-right {
+      background: #e8e4dc;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 32px;
+      padding: 120px 40px 80px;
+    }
+
+    .product-card-mini {
+      background: #fff;
+      width: 280px;
+      padding: 0;
+      cursor: pointer;
+      transition: transform 0.3s;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+
+    .product-card-mini:hover { transform: translateY(-4px); }
+
+    .product-img {
+      width: 100%;
+      height: 200px;
+      background: linear-gradient(135deg, #d4cdc4, #bfb8ae);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+    }
+
+    .product-img-2 { background: linear-gradient(135deg, #c4cdd4, #aebbcb); }
+
+    .product-info {
+      padding: 20px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .product-name {
+      font-size: 13px;
+      letter-spacing: 1px;
+      color: #1a1a1a;
+    }
+
+    .product-price {
+      font-size: 13px;
+      color: #888;
+    }
+
+    /* CATEGORIES */
+    .categories {
+      padding: 100px 60px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 48px;
+    }
+
+    .section-title {
+      font-size: 32px;
+      font-weight: 300;
+      letter-spacing: 2px;
+    }
+
+    .section-link {
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #888;
+      text-decoration: none;
+      border-bottom: 1px solid #888;
+      padding-bottom: 2px;
+    }
+
+    .cat-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 16px;
+      height: 500px;
+    }
+
+    .cat-item {
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .cat-item:hover .cat-overlay { opacity: 1; }
+    .cat-item:hover .cat-bg { transform: scale(1.04); }
+
+    .cat-bg {
+      width: 100%;
+      height: 100%;
+      transition: transform 0.5s ease;
+    }
+
+    .cat-bg-1 { background: linear-gradient(160deg, #3a3530 0%, #1a1610 100%); }
+    .cat-bg-2 { background: linear-gradient(160deg, #d4c8bc 0%, #b8a898 100%); }
+    .cat-bg-3 { background: linear-gradient(160deg, #c8d4bc 0%, #a8b898 100%); }
+
+    .cat-bg-inner {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 80px;
+    }
+
+    .cat-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.3);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .cat-label {
+      position: absolute;
+      bottom: 28px;
+      left: 28px;
+      color: #fff;
+      z-index: 1;
+    }
+
+    .cat-label-en {
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      opacity: 0.7;
+      margin-bottom: 6px;
+    }
+
+    .cat-label-ko {
+      font-size: 22px;
+      font-weight: 300;
+    }
+
+    /* BANNER */
+    .banner {
+      background: #1a1a1a;
+      padding: 80px 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .banner-text { color: #fff; }
+
+    .banner-sub {
+      font-size: 11px;
+      letter-spacing: 4px;
+      color: #888;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .banner-title {
+      font-size: 48px;
+      font-weight: 300;
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+
+    .banner-title em { color: #c8b89a; font-style: italic; }
+
+    .banner-desc {
+      color: #666;
+      font-size: 14px;
+      line-height: 1.8;
+      max-width: 400px;
+      margin-top: 16px;
+    }
+
+    .btn-outline {
+      display: inline-block;
+      padding: 16px 40px;
+      border: 1px solid #c8b89a;
+      color: #c8b89a;
+      text-decoration: none;
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+
+    .btn-outline:hover {
+      background: #c8b89a;
+      color: #1a1a1a;
+    }
+
+    /* PRODUCTS */
+    .products {
+      padding: 100px 60px;
+    }
+
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+    }
+
+    .product-card {
+      cursor: pointer;
+    }
+
+    .product-card:hover .product-card-img { transform: scale(1.03); }
+
+    .product-card-wrap {
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .product-card-img {
+      width: 100%;
+      height: 320px;
+      transition: transform 0.4s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 60px;
+    }
+
+    .img-a { background: linear-gradient(160deg, #e8e0d4, #d4c8bc); }
+    .img-b { background: linear-gradient(160deg, #d4dce8, #bcc8d4); }
+    .img-c { background: linear-gradient(160deg, #e8d4d4, #d4bcbc); }
+    .img-d { background: linear-gradient(160deg, #d4e8d4, #bcccbc); }
+
+    .product-card-name {
+      font-size: 13px;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+
+    .product-card-sub {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+
+    .product-card-price {
+      font-size: 14px;
+      color: #1a1a1a;
+    }
+
+    /* FOOTER */
+    footer {
+      background: #111;
+      color: #888;
+      padding: 60px;
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 40px;
+    }
+
+    .footer-brand .logo {
+      color: #fff;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .footer-brand p {
+      font-size: 13px;
+      line-height: 1.8;
+      color: #555;
+    }
+
+    footer h4 {
+      color: #fff;
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      font-weight: 400;
+    }
+
+    footer ul { list-style: none; }
+
+    footer ul li {
+      margin-bottom: 12px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    footer ul li:hover { color: #fff; }
+
+    .footer-bottom {
+      background: #0a0a0a;
+      padding: 20px 60px;
+      display: flex;
+      justify-content: space-between;
+      color: #444;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="logo">Noir</div>
+    <ul class="nav-links">
+      <li><a href="#">New In</a></li>
+      <li><a href="#">Women</a></li>
+      <li><a href="#">Men</a></li>
+      <li><a href="#">Collections</a></li>
+      <li><a href="#">Sale</a></li>
+    </ul>
+    <div class="nav-icons">
+      <span>🔍</span>
+      <span>♡</span>
+      <span>🛍 0</span>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-left">
+      <div class="hero-bg-text">SS26</div>
+      <div class="hero-content">
+        <p class="hero-season">2026 Spring / Summer</p>
+        <h1 class="hero-title">
+          Quiet<br>
+          <em>Luxury</em><br>
+          Redefined
+        </h1>
+        <a href="#" class="btn-primary">컬렉션 보기</a>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="product-card-mini">
+        <div class="product-img">🧥</div>
+        <div class="product-info">
+          <span class="product-name">Wool Overcoat</span>
+          <span class="product-price">₩398,000</span>
+        </div>
+      </div>
+      <div class="product-card-mini">
+        <div class="product-img product-img-2">👗</div>
+        <div class="product-info">
+          <span class="product-name">Silk Midi Dress</span>
+          <span class="product-price">₩228,000</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CATEGORIES -->
+  <section class="categories">
+    <div class="section-header">
+      <h2 class="section-title">카테고리</h2>
+      <a href="#" class="section-link">전체 보기</a>
+    </div>
+    <div class="cat-grid">
+      <div class="cat-item">
+        <div class="cat-bg cat-bg-1">
+          <div class="cat-bg-inner">🧥</div>
+        </div>
+        <div class="cat-overlay"></div>
+        <div class="cat-label">
+          <div class="cat-label-en">Outer</div>
+          <div class="cat-label-ko">아우터</div>
+        </div>
+      </div>
+      <div class="cat-item">
+        <div class="cat-bg cat-bg-2">
+          <div class="cat-bg-inner">👚</div>
+        </div>
+        <div class="cat-overlay"></div>
+        <div class="cat-label">
+          <div class="cat-label-en">Top</div>
+          <div class="cat-label-ko">상의</div>
+        </div>
+      </div>
+      <div class="cat-item">
+        <div class="cat-bg cat-bg-3">
+          <div class="cat-bg-inner">👖</div>
+        </div>
+        <div class="cat-overlay"></div>
+        <div class="cat-label">
+          <div class="cat-label-en">Bottom</div>
+          <div class="cat-label-ko">하의</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BANNER -->
+  <section class="banner">
+    <div class="banner-text">
+      <p class="banner-sub">Limited Edition</p>
+      <h2 class="banner-title">Summer <em>Essential</em><br>Collection</h2>
+      <p class="banner-desc">
+        올 여름, 가장 본질적인 것들만 남겼습니다.<br>
+        단순함 속에서 찾아낸 진짜 스타일.
+      </p>
+    </div>
+    <a href="#" class="btn-outline">지금 쇼핑하기</a>
+  </section>
+
+  <!-- PRODUCTS -->
+  <section class="products">
+    <div class="section-header">
+      <h2 class="section-title">신상품</h2>
+      <a href="#" class="section-link">더 보기</a>
+    </div>
+    <div class="product-grid">
+      <div class="product-card">
+        <div class="product-card-wrap">
+          <div class="product-card-img img-a">🧣</div>
+        </div>
+        <div class="product-card-name">Cashmere Scarf</div>
+        <div class="product-card-sub">Beige / One Size</div>
+        <div class="product-card-price">₩128,000</div>
+      </div>
+      <div class="product-card">
+        <div class="product-card-wrap">
+          <div class="product-card-img img-b">👔</div>
+        </div>
+        <div class="product-card-name">Linen Shirt</div>
+        <div class="product-card-sub">White / S M L XL</div>
+        <div class="product-card-price">₩89,000</div>
+      </div>
+      <div class="product-card">
+        <div class="product-card-wrap">
+          <div class="product-card-img img-c">👗</div>
+        </div>
+        <div class="product-card-name">Pleated Skirt</div>
+        <div class="product-card-sub">Blush / XS S M L</div>
+        <div class="product-card-price">₩112,000</div>
+      </div>
+      <div class="product-card">
+        <div class="product-card-wrap">
+          <div class="product-card-img img-d">🩳</div>
+        </div>
+        <div class="product-card-name">Wide Shorts</div>
+        <div class="product-card-sub">Sage / S M L XL</div>
+        <div class="product-card-price">₩76,000</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-brand">
+      <span class="logo">Noir</span>
+      <p>조용한 럭셔리를 추구하는<br>패션 브랜드 NOIR.<br>본질적인 아름다움을 담습니다.</p>
+    </div>
+    <div>
+      <h4>쇼핑</h4>
+      <ul>
+        <li>신상품</li>
+        <li>여성</li>
+        <li>남성</li>
+        <li>세일</li>
+      </ul>
+    </div>
+    <div>
+      <h4>고객지원</h4>
+      <ul>
+        <li>주문 조회</li>
+        <li>교환 / 반품</li>
+        <li>배송 안내</li>
+        <li>FAQ</li>
+      </ul>
+    </div>
+    <div>
+      <h4>브랜드</h4>
+      <ul>
+        <li>About NOIR</li>
+        <li>지속가능성</li>
+        <li>Instagram</li>
+        <li>Newsletter</li>
+      </ul>
+    </div>
+  </footer>
+  <div class="footer-bottom">
+    <span>© 2026 NOIR. All rights reserved.</span>
+    <span>개인정보처리방침 · 이용약관</span>
+  </div>
+
+</body>
+</html>
