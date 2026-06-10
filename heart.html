@@ -3,214 +3,219 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Crystal Heart</title>
+<title>Beating Heart</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #000510; overflow: hidden; }
+  body { background: #06000e; overflow: hidden; }
   canvas { display: block; }
+
+  /* 로딩 스피너 */
+  #loader {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: #06000e;
+    z-index: 10;
+    gap: 20px;
+    transition: opacity 0.6s ease;
+  }
+  #loader.hidden { opacity: 0; pointer-events: none; }
+
+  .spinner {
+    width: 52px; height: 52px;
+    border: 3px solid rgba(180, 80, 80, 0.2);
+    border-top-color: #cc3344;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #loader p {
+    color: rgba(255,255,255,0.45);
+    font-family: system-ui, sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+  }
 </style>
+
 <script type="importmap">
 {
   "imports": {
-    "three":          "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js",
-    "three/addons/":  "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/"
+    "three":         "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/"
   }
 }
 </script>
 </head>
 <body>
-<script type="module">
-import * as THREE                from 'three';
-import { OrbitControls }        from 'three/addons/controls/OrbitControls.js';
-import { RoomEnvironment }      from 'three/addons/environments/RoomEnvironment.js';
 
-/* ──────────────────────────────────────────────────────────
-   Renderer
-────────────────────────────────────────────────────────── */
+<div id="loader">
+  <div class="spinner"></div>
+  <p>Loading heart model…</p>
+</div>
+
+<script type="module">
+import * as THREE         from 'three';
+import { OrbitControls }  from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader }     from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* ── Renderer ──────────────────────────────────────────── */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
 renderer.toneMapping        = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.4;
+renderer.toneMappingExposure = 1.1;
 renderer.outputColorSpace   = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
-/* ──────────────────────────────────────────────────────────
-   Scene / Camera
-────────────────────────────────────────────────────────── */
+/* ── Scene / Camera ────────────────────────────────────── */
 const scene  = new THREE.Scene();
-scene.background = new THREE.Color(0x000814);
-scene.fog        = new THREE.FogExp2(0x000814, 0.06);
+scene.background = new THREE.Color(0x06000e);
+scene.fog        = new THREE.FogExp2(0x06000e, 0.04);
 
-const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
-camera.position.set(0, 0, 6);
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.01, 200);
+camera.position.set(0, 0.5, 5);
 
-/* ──────────────────────────────────────────────────────────
-   Environment map — required for transmission / crystal
-────────────────────────────────────────────────────────── */
-const pmrem = new THREE.PMREMGenerator(renderer);
-pmrem.compileEquirectangularShader();
-const envTexture = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
-scene.environment = envTexture;
+/* ── Environment ───────────────────────────────────────── */
+const pmrem      = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
 
-/* ──────────────────────────────────────────────────────────
-   OrbitControls
-────────────────────────────────────────────────────────── */
+/* ── Controls ──────────────────────────────────────────── */
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping  = true;
-controls.dampingFactor  = 0.06;
-controls.minDistance    = 2;
-controls.maxDistance    = 14;
-controls.autoRotate     = false; // we handle rotation manually for beat sync
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance   = 1;
+controls.maxDistance   = 20;
+controls.target.set(0, 0, 0);
 
-/* ──────────────────────────────────────────────────────────
-   Heart shape (parametric curve → ExtrudeGeometry)
-   x = 16 sin³t,  y = 13cost − 5cos2t − 2cos3t − cos4t
-────────────────────────────────────────────────────────── */
-function buildHeartShape(scale = 0.12) {
-  const shape = new THREE.Shape();
-  const N = 256;
-  for (let i = 0; i <= N; i++) {
-    const t = (i / N) * Math.PI * 2;
-    const x =  16 * Math.pow(Math.sin(t), 3);
-    const y =  13 * Math.cos(t)
-              - 5 * Math.cos(2 * t)
-              - 2 * Math.cos(3 * t)
-              -     Math.cos(4 * t);
-    if (i === 0) shape.moveTo(x * scale, y * scale);
-    else         shape.lineTo(x * scale, y * scale);
-  }
-  return shape;
-}
+/* ── Lights ─────────────────────────────────────────────── */
+scene.add(new THREE.AmbientLight(0x220a22, 1.0));
 
-const heartShape = buildHeartShape(0.12);
+// 메인 키 라이트 (따뜻한 붉은빛)
+const keyLight = new THREE.PointLight(0xff3322, 120, 25);
+keyLight.position.set(4, 5, 6);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.setScalar(1024);
+scene.add(keyLight);
 
-const extrudeOpts = {
-  depth:          0.80,
-  bevelEnabled:   true,
-  bevelSegments:  10,
-  steps:          2,
-  bevelSize:      0.20,
-  bevelThickness: 0.22,
-};
+// 림 라이트 (차가운 파란빛 — 뒤에서)
+const rimLight = new THREE.PointLight(0x2244ff, 80, 30);
+rimLight.position.set(-5, 2, -4);
+scene.add(rimLight);
 
-const heartGeo = new THREE.ExtrudeGeometry(heartShape, extrudeOpts);
-heartGeo.center();
+// 하단 보조광
+const fillLight = new THREE.PointLight(0xff1100, 40, 18);
+fillLight.position.set(0, -4, 4);
+scene.add(fillLight);
 
-/* ──────────────────────────────────────────────────────────
-   Crystal / glass material  (MeshPhysicalMaterial)
-────────────────────────────────────────────────────────── */
-const crystalMat = new THREE.MeshPhysicalMaterial({
-  color:              0xaaddff,
-  transmission:       0.92,       // 빛 투과
-  roughness:          0.04,
-  metalness:          0.08,
-  ior:                2.0,        // 굴절률 (다이아몬드급)
-  reflectivity:       1.0,
-  thickness:          1.5,
-  envMapIntensity:    2.5,
-  clearcoat:          1.0,
-  clearcoatRoughness: 0.04,
-  iridescence:        0.7,        // 무지개빛 표면
-  iridescenceIOR:     1.4,
-  transparent:        true,
-  opacity:            0.92,
-  side:               THREE.DoubleSide,
-  depthWrite:         false,
-});
+// 박동 시 터지는 펄스 라이트
+const pulseLight = new THREE.PointLight(0xff4444, 0, 12);
+pulseLight.position.set(0, 0, 3);
+scene.add(pulseLight);
 
-const heartMesh = new THREE.Mesh(heartGeo, crystalMat);
-scene.add(heartMesh);
-
-/* ──────────────────────────────────────────────────────────
-   Inner glow core  (emissive, slightly smaller)
-────────────────────────────────────────────────────────── */
-const innerGeo = new THREE.ExtrudeGeometry(buildHeartShape(0.09), {
-  depth: 0.55, bevelEnabled: true, bevelSegments: 4,
-  steps: 1, bevelSize: 0.10, bevelThickness: 0.10,
-});
-innerGeo.center();
-const innerMat = new THREE.MeshStandardMaterial({
-  color:     0x88ccff,
-  emissive:  0x3366bb,
-  emissiveIntensity: 1.8,
-  transparent: true,
-  opacity:   0.35,
-  side:      THREE.BackSide,
-});
-const innerMesh = new THREE.Mesh(innerGeo, innerMat);
-scene.add(innerMesh);
-
-/* ──────────────────────────────────────────────────────────
-   Lights  — orbiting point lights for sparkle / caustic feel
-────────────────────────────────────────────────────────── */
-scene.add(new THREE.AmbientLight(0x223355, 0.8));
-
-const lightDefs = [
-  { color: 0xff99dd, intensity: 50,  r: 4.5, y:  1.5, speed: 0.40, phase: 0.0 },
-  { color: 0x99ccff, intensity: 45,  r: 4.0, y: -1.0, speed: 0.55, phase: 1.2 },
-  { color: 0xffffff, intensity: 60,  r: 3.5, y:  2.5, speed: 0.30, phase: 2.4 },
-  { color: 0xffaaff, intensity: 35,  r: 5.0, y: -2.0, speed: 0.65, phase: 3.6 },
-  { color: 0xaaffee, intensity: 30,  r: 3.0, y:  0.0, speed: 0.48, phase: 4.8 },
-  { color: 0xffeebb, intensity: 55,  r: 4.2, y:  3.0, speed: 0.35, phase: 5.5 },
-];
-
-const ptLights = lightDefs.map(d => {
-  const l = new THREE.PointLight(d.color, d.intensity, 18);
-  scene.add(l);
-  return { light: l, ...d };
-});
-
-/* ──────────────────────────────────────────────────────────
-   Background star particles
-────────────────────────────────────────────────────────── */
-const starGeo = new THREE.BufferGeometry();
-const starPos = new Float32Array(600 * 3);
-for (let i = 0; i < 600; i++) {
-  starPos[i*3]   = (Math.random() - 0.5) * 40;
-  starPos[i*3+1] = (Math.random() - 0.5) * 40;
-  starPos[i*3+2] = (Math.random() - 0.5) * 40;
-}
-starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-const starMat = new THREE.PointsMaterial({
-  color: 0xaaddff, size: 0.05, transparent: true, opacity: 0.55,
-  sizeAttenuation: true,
-});
-scene.add(new THREE.Points(starGeo, starMat));
-
-/* ──────────────────────────────────────────────────────────
-   Resize handler
-────────────────────────────────────────────────────────── */
+/* ── Resize ────────────────────────────────────────────── */
 window.addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
 });
 
-/* ──────────────────────────────────────────────────────────
-   Heartbeat  — 쿵-쿵 (lub-dub) double-beat pattern
-────────────────────────────────────────────────────────── */
+/* ── Heartbeat 함수 (쿵-쿵 lub-dub 패턴) ──────────────── */
 const BPM    = 68;
-const PERIOD = 60 / BPM; // ≈ 0.88 sec
+const PERIOD = 60 / BPM; // ≈ 0.882 sec
 
 function beatScale(t) {
   const p = (t % PERIOD) / PERIOD; // 0 → 1
 
-  // ── lub (1st beat) ──
-  if (p < 0.055) return 1.00 + (p / 0.055) * 0.10;               // swell  1.00 → 1.10
-  if (p < 0.130) return 1.10 - ((p - 0.055) / 0.075) * 0.10;     // fall   1.10 → 1.00
+  // ── 1st beat (lub, 강하게) ──
+  if (p < 0.055) return 0.97 + (p / 0.055) * 0.09;              // 0.97 → 1.06
+  if (p < 0.130) return 1.06 - ((p - 0.055) / 0.075) * 0.09;   // 1.06 → 0.97
 
-  // ── dub (2nd beat, softer) ──
-  if (p < 0.210) return 1.00;
-  if (p < 0.265) return 1.00 + ((p - 0.210) / 0.055) * 0.055;    // swell  1.00 → 1.055
-  if (p < 0.340) return 1.055 - ((p - 0.265) / 0.075) * 0.055;   // fall   1.055 → 1.00
+  // ── 2nd beat (dub, 부드럽게) ──
+  if (p < 0.215) return 0.97 + ((p - 0.130) / 0.085) * 0.005;  // 0.97 → 0.975 (이완)
+  if (p < 0.270) return 0.975 + ((p - 0.215) / 0.055) * 0.055; // 0.975 → 1.03
+  if (p < 0.360) return 1.030 - ((p - 0.270) / 0.090) * 0.055; // 1.03  → 0.975
 
-  return 1.00; // diastole rest
+  // ── 이완기 (서서히 1.0으로 복귀) ──
+  if (p < 0.500) return 0.975 + ((p - 0.360) / 0.140) * 0.025; // 0.975 → 1.0
+  return 1.0;
 }
 
-/* ──────────────────────────────────────────────────────────
-   Animation loop
-────────────────────────────────────────────────────────── */
+function pulseLightIntensity(t) {
+  const p = (t % PERIOD) / PERIOD;
+  // lub 순간 강한 플래시
+  if (p < 0.055) return (p / 0.055) * 60;
+  if (p < 0.130) return (1 - (p - 0.055) / 0.075) * 60;
+  // dub 순간 약한 플래시
+  if (p < 0.270) return 0;
+  if (p < 0.310) return ((p - 0.270) / 0.040) * 25;
+  if (p < 0.360) return (1 - (p - 0.310) / 0.050) * 25;
+  return 0;
+}
+
+/* ── GLB 로드 ───────────────────────────────────────────── */
+const loader = new GLTFLoader();
+let heartGroup = null;
+
+loader.load(
+  './anatomical_heart_2.glb',
+
+  // onLoad
+  (gltf) => {
+    const model = gltf.scene;
+
+    // 모델 크기 자동 조정
+    const box    = new THREE.Box3().setFromObject(model);
+    const size   = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale  = 3.0 / maxDim;
+
+    model.scale.setScalar(scale);
+    model.position.sub(center.multiplyScalar(scale));
+
+    // 그림자 + 재질 개선
+    model.traverse(child => {
+      if (child.isMesh) {
+        child.castShadow    = true;
+        child.receiveShadow = true;
+        if (child.material) {
+          child.material.envMapIntensity = 1.2;
+        }
+      }
+    });
+
+    heartGroup = new THREE.Group();
+    heartGroup.add(model);
+    scene.add(heartGroup);
+
+    // 스피너 숨기기
+    const loaderEl = document.getElementById('loader');
+    loaderEl.classList.add('hidden');
+    setTimeout(() => loaderEl.remove(), 700);
+  },
+
+  // onProgress
+  (xhr) => {
+    if (xhr.lengthComputable) {
+      const pct = Math.round(xhr.loaded / xhr.total * 100);
+      const p = document.querySelector('#loader p');
+      if (p) p.textContent = `Loading… ${pct}%`;
+    }
+  },
+
+  // onError
+  (err) => {
+    const p = document.querySelector('#loader p');
+    if (p) p.textContent = `Load failed: ${err.message}`;
+    console.error(err);
+  }
+);
+
+/* ── 애니메이션 루프 ─────────────────────────────────────── */
 const clock = new THREE.Clock();
 let elapsed = 0;
 
@@ -219,30 +224,17 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.05);
   elapsed += dt;
 
-  // ── Heartbeat scale ──
-  const sc = beatScale(elapsed);
-  heartMesh.scale.setScalar(sc);
-  innerMesh.scale.setScalar(sc * 0.98);
+  if (heartGroup) {
+    // 박동 스케일
+    const sc = beatScale(elapsed);
+    heartGroup.scale.setScalar(sc);
 
-  // ── Slow Y auto-rotation ──
-  heartMesh.rotation.y += 0.004;
-  innerMesh.rotation.y  = heartMesh.rotation.y;
-
-  // ── Inner glow pulse ──
-  const pulse = sc - 1.0;
-  innerMat.emissiveIntensity = 1.8 + pulse * 12;
-
-  // ── Orbit lights ──
-  for (const d of ptLights) {
-    const a = elapsed * d.speed + d.phase;
-    d.light.position.set(
-      Math.cos(a) * d.r,
-      d.y + Math.sin(a * 0.6) * 1.2,
-      Math.sin(a) * d.r,
-    );
-    // Intensity pulse on beat
-    d.light.intensity = d.intensity * (1.0 + pulse * 3.5);
+    // 천천히 Y축 자동 회전
+    heartGroup.rotation.y += 0.003;
   }
+
+  // 펄스 라이트
+  pulseLight.intensity = pulseLightIntensity(elapsed);
 
   controls.update();
   renderer.render(scene, camera);
